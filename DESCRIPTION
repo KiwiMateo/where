@@ -1,0 +1,21 @@
+Package: where
+Type: Package
+Title: Vectorised substitution and evaluation
+Version: 1.0.0
+Author: Matt Hendtlass
+Maintainer: Matt Hendtlass <m.hendtlass@gmail.com>
+Description: Provides a clean syntax for vectorising the use of NSE, for example 
+    in ggplot2, dplyr, or data.table.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Suggests: 
+    data.table,
+    dplyr,
+    ggplot2,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+RoxygenNote: 7.3.2

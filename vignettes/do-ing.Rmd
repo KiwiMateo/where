@@ -1,0 +1,350 @@
+---
+title: "do-ing"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{do-ing}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+library(where)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+```
+
+
+The `where` package has one main function `where::do` which provides a clean
+syntax for vectorising the use of NSE, for example in `ggplot2`, `dplyr`, or
+`data.table`. There are also two (infix) wrappers `%where%` and `%for%` that
+provide arguably cleaner syntax.
+
+In a typical example, we might have a population dataset and various
+subpopulations of interest. If the subpopulations are a partition of the data
+(for example, into 5 year age bands), then we can use `group_by` in `dplyr` or
+faceting in `ggplot`. In general, however, populations will not be so easy to
+apply over, for example if we have some defined by age, others by gender, and
+then others as a combination of the two. If a variable allows multiple options 
+to be selected (for example, ethnicity in the New Zealand Census), then even
+subpopulations defined by a single variable (in this case ethnic groups) cannot
+be vectorised with the partitioning functionality (like group by and faceting)
+in standard packages.
+
+## Simple example
+
+As a running example we will use the `iris` dataset and the following 
+(largely unnatural) sub-populations of irises:
+
+- the full population,
+- irises with sepal length more than 6, and
+- irises with petal length more than 5.5.
+
+These subgroups can be captured with the `.` function to capture the filter
+conditions used to define these populations:
+
+```{r subgroups}
+subgroups <- .(all        = TRUE,
+               long_sepal = Sepal.Length > 6,
+               long_petal = Petal.Length > 5.5)
+```
+
+To utilise these subgroups directly with standard R is tricky. For example we
+could form the separate populations with repeated code. 
+
+```{r repetition}
+# With base R
+iris
+iris[iris[["Sepal.Length"]] > 6, ] # or with(iris, iris[Sepal.Length > 6])
+iris[iris[["Petal.Length"]] > 5.5, ] # or with(iris, iris[Petal.Length > 5.5])
+
+# With dplyr
+iris
+filter(iris, Sepal.Length > 6)
+filter(iris, Petal.Length > 5.5)
+
+# With data.table
+iris
+as.data.table(iris)[Sepal.Length > 6]
+as.data.table(iris)[Petal.Length > 5.5]
+```
+
+or this could be done by first explicitly capturing expressions (as done above
+with `.`) and then evaluating them:
+
+```{r eval}
+lapply(subgroups, function(group) with(iris, iris[eval(group), ]))
+```
+
+This requires some comfort with managing expressions in R and can quickly get
+messy with more complex queries, particularly if we want to apply across more 
+than one set of expressions. The `where::do` function hides these manipulations:
+
+```{r}
+where::do(with(iris, iris[subgroup, ]),
+       subgroup = subgroups)
+
+# or
+with(iris, iris[x, ]) %for% subgroups
+```
+
+
+## More interesting examples
+
+A standard group by and summarise operation:
+
+```{r filter_summarise}
+library(dplyr)
+
+subgroups = .(all        = TRUE,
+              long_sepal = Sepal.Length > 6,
+              long_petal = Petal.Length > 5.5)
+functions = .(mean, sum, prod)
+
+where::do(
+  iris %>%
+    filter(subgroup) %>%
+    summarise(across(Sepal.Length:Petal.Width,
+                     summary),
+              .by = Species),
+  subgroup = subgroups,
+  summary  = functions
+)
+```
+
+The same in `data.table`:
+
+```{r filter_summarise_dt}
+library(data.table)
+df <- as.data.table(iris)
+
+where::do(df[subgroup, lapply(.SD, functions), keyby = "Species",
+      .SDcols = Sepal.Length:Petal.Width],
+   subgroup  = subgroups,
+   functions = functions)
+```
+
+Producing the same ggplot over the different populations:
+
+```{r ggplot}
+library(ggplot2)
+
+plots <- where::do(
+  ggplot(filter(iris, subgroup),
+         aes(Sepal.Length, Sepal.Width)) +
+    geom_point() +
+    theme_minimal(),
+  subgroup = subgroups
+)
+
+Map(function(plot, name) plot + ggtitle(name), plots, names(plots))
+```
+
+Or different plots for the full population:
+
+```{r ggplots}
+where::do(
+  ggplot(iris,
+         aes(Sepal.Length, Sepal.Width)) +
+    plot +
+    theme_minimal(),
+  plot = .(geom_point(), 
+           geom_smooth())
+)
+```
+
+### A limitation
+
+A natrual extension of the previous example can fail is a non-obvious way, due
+to expressions being executed differently than might be intended. For example
+the following does not work
+
+```{r fail_compound_geom, eval = FALSE}
+# Fails
+where::do(
+  ggplot(iris,
+         aes(Sepal.Length, Sepal.Width)) +
+    plot +
+    theme_minimal(),
+  plot = .(geom_point(), 
+           geom_smooth(), 
+           geom_quantile() + geom_rug())
+)
+```
+
+since, for the third plot, it tries to evaluate 
+
+```{r fail_compound_geom2, eval = FALSE}
+# Fails
+ggplot(iris, aes(Sepal.Length, Sepal.Width)) + 
+    (geom_quantile() + geom_rug()) + 
+    theme_minimal()
+```
+
+and `geom_quantile() + geom_rug()` throws an error. This particular use case can 
+be accomplished by putting the separate `geom`s in a list 
+
+```{r compound_geom}
+where::do(
+  ggplot(iris,
+         aes(Sepal.Length, Sepal.Width)) +
+    plot +
+    theme_minimal(),
+  plot = .(point  = geom_point(), 
+           smooth = geom_smooth(), 
+           quantilerug = list(geom_quantile(), 
+                              geom_rug()))
+)
+
+# or by separating out the combined geoms as a function (also using a list)
+geom_quantilerug <- function() list(geom_quantile(), 
+                                    geom_rug())
+
+where::do(
+  ggplot(iris,
+         aes(Sepal.Length, Sepal.Width)) +
+    plot +
+    theme_minimal(),
+  plot = .(point  = geom_point(), 
+           smooth = geom_smooth(), 
+           quantilerug = geom_quantilerug())
+)
+```
+
+## where::do in a function
+
+We can call `where::do` from within a function to further hide details. For 
+example, we could produce subpopulation summaries for the different species of 
+iris:  
+
+```{r function_on_parts}
+population_summaries <- function(df) where::do(with(df, df[subgroup, ]),
+                                            subgroup = subgroups)
+
+as.data.table(iris)[, .(population_summaries(.SD)), keyby = "Species"]
+```
+
+As a more general example,  if we are undertaking an analysis of different
+subpopulations, then we could fix the populations in a function and apply code
+immediately over all groups.
+
+```{r apply_over_pops}
+on_subpopulations <- function(expr,
+                              populations = subgroups)
+  eval(substitute(where::do(expr, subgroup = populations),
+                  list(expr = substitute(expr))))
+
+on_subpopulations(as.data.table(iris)[subgroup])
+
+on_subpopulations(
+  iris %>%
+    filter(subgroup) %>%
+    summarise(across(Sepal.Length:Petal.Width,
+                     mean),
+              .by = Species)
+)
+
+on_subpopulations(
+  ggplot(filter(iris, subgroup),
+         aes(Sepal.Length, Sepal.Width)) +
+    geom_point() +
+    theme_minimal()
+)
+```
+
+As when following the DRY (Don't Repeat Yourself) principle in general, this
+isolation makes it straightforward to add a new subpopulation, here by editing
+the subgroups:
+
+```{r extra_subpop}
+subgroups = .(all        = TRUE,
+              long_sepal = Sepal.Length > 6,
+              long_petal = Petal.Length > 5.5,
+              veriscolor = Species == "versicolor")
+```
+
+Taking things to the absurd, we can also isolate out the analysis code:
+
+```{r}
+analyses <- .(subset    = as.data.table(iris)[subgroup],
+              summarise = iris %>%
+                filter(subgroup) %>%
+                summarise(across(Sepal.Length:Petal.Width,
+                                 mean),
+                          .by = Species),
+              plot      = ggplot(filter(iris, subgroup),
+                                 aes(Sepal.Length, Sepal.Width)) +
+                geom_point() +
+                theme_minimal())
+
+lapply(analyses,
+       function(expr) do.call("on_subpopulations", list(expr)))
+```
+
+### A small warning
+
+The `ggplot` example
+
+```{r}
+on_subpopulations(
+  ggplot(filter(iris, subgroup),
+         aes(Sepal.Length, Sepal.Width)) +
+    geom_point() +
+    theme_minimal()
+)
+```
+
+does not give identical results to executing the `ggplot` code with the given 
+subgroups, since the ggplot object stores the execution environment, which will
+be different.
+
+If important, this can be remedied by capturing and passing the calling 
+environment in the `on_subpopulations` function:
+
+```{r}
+on_subpopulations <- function(expr,
+                              populations = subgroups) {
+  e <- parent.frame()
+  eval(substitute(where::do(expr, subgroup = populations, e = e),
+                  list(expr = substitute(expr))))
+}
+```
+
+
+## Infix notation
+
+As some syntactic sugar, there are also two infix versions of `where::do`:
+
+- `%where%` is a full infix version of `where::do` taking the expression as the left
+argument and a named list of values to be substituted as the right argument.
+- ``%for%` has slightly simplified syntax but only allows one substitution, for 
+the symbol `x`.
+
+```{r infixed}
+as.data.table(iris)[subgroup, lapply(.SD, summary), keyby = "Species",
+                    .SDcols = Sepal.Length:Petal.Width] %where% 
+  list(subgroup = subgroups[1:3],
+       summary  = functions)
+
+# note `subgroup` replaced with 'x'
+as.data.table(iris)[x, lapply(.SD, mean), keyby = "Species",
+                    .SDcols = Sepal.Length:Petal.Width] %for% 
+  subgroups
+```
+
+Complex expressions (for example, with pipes or `+`) need to be wrapped with
+"()" or "{}". For example
+
+```{r infixed_bracketed}
+(iris %>%
+    filter(x) %>%
+    summarise(across(Sepal.Length:Petal.Width,
+                     mean),
+              .by = Species)) %for% subgroups
+```
+
