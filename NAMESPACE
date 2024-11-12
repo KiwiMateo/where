@@ -3,4 +3,4 @@
 export("%for%")
 export("%where%")
 export(.)
-export(do)
+export(run)

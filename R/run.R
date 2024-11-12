@@ -14,7 +14,7 @@
 #'   Vectorised substitution of expressions into a large code block and
 #'   execution.
 #'
-#'   `%where%` is a infixed version of do.
+#'   `%where%` is a infixed version of run.
 #'   `%for%` takes only one list of expressions to be substituted for `x`.
 #'
 #' @param expr the code to run
@@ -34,7 +34,7 @@
 #'                  long_petal = Petal.Length > 5.5)
 #'    functions = .(mean, sum, prod)
 #'
-#'    where::do(
+#'    run(
 #'      iris %>%
 #'        filter(subgroup) %>%
 #'        summarise(across(Sepal.Length:Petal.Width,
@@ -47,14 +47,15 @@
 #'    library(data.table)
 #'    df <- as.data.table(iris)
 #'
-#'    where::do(df[subgroup, lapply(.SD, functions), keyby = "Species",
+#'    run(df[subgroup, lapply(.SD, functions), keyby = "Species",
 #'          .SDcols = Sepal.Length:Petal.Width],
 #'
 #'       subgroup  = subgroups,
 #'       functions = functions)
 #'
 #'    library(ggplot2)
-#'    plots <- where::do(
+#'
+#'    plots <- run(
 #'      ggplot(filter(iris, subgroup),
 #'             aes(Sepal.Length, Sepal.Width)) +
 #'        geom_point() +
@@ -80,7 +81,7 @@
 #'       geom_point() +
 #'       theme_minimal()
 #'   ) %for% subgroups
-do <- function(expr,
+run <- function(expr,
                ...,
                e = parent.frame()) {
   expr   <- substitute(expr)
@@ -108,17 +109,16 @@ do <- function(expr,
   do.call("mapply", c(list(FUN = f), values, SIMPLIFY = FALSE))
 }
 
-#' @rdname do
+#' @rdname run
 #' @export
 `%for%` <- function(expr, x) {
   e <- parent.frame()
-  do.call(where::do, list(substitute(expr), x = x, e = e))
+  do.call(run, list(substitute(expr), x = x, e = e))
 }
 
-#' @rdname do
+#' @rdname run
 #' @export
 `%where%` <- function(expr, pars){
   e <- parent.frame()
-  do.call(where::do, c(list(substitute(expr), e = e), pars))
+  do.call(run, c(list(substitute(expr), e = e), pars))
 }
-

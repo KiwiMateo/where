@@ -1,17 +1,17 @@
 library(dplyr)
 library(ggplot2)
 
-test_that("test where::do function", {
+test_that("test run function", {
   # Expression only
-  expect_equal(where::do(1 + 1), list(2))
+  expect_equal(run(1 + 1), list(2))
   # Error, unused value provided
-  expect_error(where::do(1 + 1, a = 1:2), "some values not in expr")
+  expect_error(run(1 + 1, a = 1:2), "some values not in expr")
   # Simple expression, 1 value
-  expect_equal(where::do(a + 1, a = 1:2), list(2, 3))
+  expect_equal(run(a + 1, a = 1:2), list(2, 3))
   # Simple expression, 2 values
-  expect_equal(where::do(a + b, a = 1:2, b = 3:4), list(4, 6))
+  expect_equal(run(a + b, a = 1:2, b = 3:4), list(4, 6))
   # Simple expression, 2 expr values
-  expect_equal(where::do(a + 1, a = .(5, 6)), list(6, 7))
+  expect_equal(run(a + 1, a = .(5, 6)), list(6, 7))
 
   # Typical expressions
   subgroups <- .(all        = TRUE,
@@ -20,7 +20,7 @@ test_that("test where::do function", {
   functions <- .(mean, sum, prod)
 
   outs1 <- list(
-    one = where::do(# Typical expression, 1 value
+    one = run(# Typical expression, 1 value
       iris %>%
         filter(subgroup) %>%
         summarise(across(Sepal.Length:Petal.Width,
@@ -28,7 +28,7 @@ test_that("test where::do function", {
                   .by = Species),
       subgroup = subgroups
     ),
-    two = where::do(# Typical expression, 2 values
+    two = run(# Typical expression, 2 values
       iris %>%
         filter(subgroup) %>%
         summarise(across(Sepal.Length:Petal.Width,
@@ -37,7 +37,7 @@ test_that("test where::do function", {
       subgroup = subgroups,
       summary  = functions
     ),
-    two_diff = where::do(# Typical expression, 2 values, 1 of length 1
+    two_diff = run(# Typical expression, 2 values, 1 of length 1
       iris %>%
         filter(subgroup) %>%
         summarise(across(Sepal.Length:Petal.Width,
@@ -63,8 +63,8 @@ test_that("test where::do function", {
                      outs1[["two_diff"]][[i]])
 
 
-  # where::do within a function
-  f <- function(df) where::do(with(df, df[subgroup, ]),
+  # run within a function
+  f <- function(df) run(with(df, df[subgroup, ]),
                        subgroup = subgroups)
   outs2 <- list(all        = f(iris),
                 versicolor = f(iris[iris[["Species"]] == "versicolor", ]))
@@ -74,20 +74,20 @@ test_that("test where::do function", {
     expect_true(all(sapply(out, is.data.frame)))
   }
   expect_identical(outs2[["all"]],
-                   where::do(with(iris, iris[subgroup, ]), subgroup = subgroups))
+                   run(with(iris, iris[subgroup, ]), subgroup = subgroups))
   expect_identical(outs2[["versicolor"]],
-                   where::do(with(iris, iris[Species == "versicolor" & subgroup, ]),
+                   run(with(iris, iris[Species == "versicolor" & subgroup, ]),
                       subgroup = subgroups))
 
-  # where::do within a function, passing expr
+  # run within a function, passing expr
   apply_over_groups <- function(expr,
                                 populations = subgroups) {
     e <- parent.frame()
-    eval(substitute(where::do(expr, subgroup = populations, e = e),
+    eval(substitute(run(expr, subgroup = populations, e = e),
                     list(expr = substitute(expr))))
   }
 
-  expect_identical(where::do(with(iris, iris[subgroup, ]),
+  expect_identical(run(with(iris, iris[subgroup, ]),
                           subgroup = subgroups),
                    apply_over_groups(with(iris, iris[subgroup, ])))
 
@@ -99,7 +99,7 @@ test_that("test where::do function", {
                                         mean),
                                  .by = Species)))
 
-  expect_identical(where::do(ggplot(filter(iris, subgroup),
+  expect_identical(run(ggplot(filter(iris, subgroup),
                                  aes(Sepal.Length, Sepal.Width)) +
                             geom_point() +
                             theme_minimal(),

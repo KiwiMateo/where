@@ -1,8 +1,8 @@
 ---
-title: "do-ing"
+title: "Where"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{do-ing}
+  %\VignetteIndexEntry{Where}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -20,7 +20,7 @@ library(ggplot2)
 ```
 
 
-The `where` package has one main function `where::do` which provides a clean
+The `where` package has one main function `run` which provides a clean
 syntax for vectorising the use of NSE, for example in `ggplot2`, `dplyr`, or
 `data.table`. There are also two (infix) wrappers `%where%` and `%for%` that
 provide arguably cleaner syntax.
@@ -83,10 +83,10 @@ lapply(subgroups, function(group) with(iris, iris[eval(group), ]))
 
 This requires some comfort with managing expressions in R and can quickly get
 messy with more complex queries, particularly if we want to apply across more 
-than one set of expressions. The `where::do` function hides these manipulations:
+than one set of expressions. The `run` function hides these manipulations:
 
 ```{r}
-where::do(with(iris, iris[subgroup, ]),
+run(with(iris, iris[subgroup, ]),
        subgroup = subgroups)
 
 # or
@@ -106,7 +106,7 @@ subgroups = .(all        = TRUE,
               long_petal = Petal.Length > 5.5)
 functions = .(mean, sum, prod)
 
-where::do(
+run(
   iris %>%
     filter(subgroup) %>%
     summarise(across(Sepal.Length:Petal.Width,
@@ -123,7 +123,7 @@ The same in `data.table`:
 library(data.table)
 df <- as.data.table(iris)
 
-where::do(df[subgroup, lapply(.SD, functions), keyby = "Species",
+run(df[subgroup, lapply(.SD, functions), keyby = "Species",
       .SDcols = Sepal.Length:Petal.Width],
    subgroup  = subgroups,
    functions = functions)
@@ -134,7 +134,7 @@ Producing the same ggplot over the different populations:
 ```{r ggplot}
 library(ggplot2)
 
-plots <- where::do(
+plots <- run(
   ggplot(filter(iris, subgroup),
          aes(Sepal.Length, Sepal.Width)) +
     geom_point() +
@@ -148,7 +148,7 @@ Map(function(plot, name) plot + ggtitle(name), plots, names(plots))
 Or different plots for the full population:
 
 ```{r ggplots}
-where::do(
+run(
   ggplot(iris,
          aes(Sepal.Length, Sepal.Width)) +
     plot +
@@ -166,7 +166,7 @@ the following does not work
 
 ```{r fail_compound_geom, eval = FALSE}
 # Fails
-where::do(
+run(
   ggplot(iris,
          aes(Sepal.Length, Sepal.Width)) +
     plot +
@@ -190,7 +190,7 @@ and `geom_quantile() + geom_rug()` throws an error. This particular use case can
 be accomplished by putting the separate `geom`s in a list 
 
 ```{r compound_geom}
-where::do(
+run(
   ggplot(iris,
          aes(Sepal.Length, Sepal.Width)) +
     plot +
@@ -205,7 +205,7 @@ where::do(
 geom_quantilerug <- function() list(geom_quantile(), 
                                     geom_rug())
 
-where::do(
+run(
   ggplot(iris,
          aes(Sepal.Length, Sepal.Width)) +
     plot +
@@ -216,14 +216,14 @@ where::do(
 )
 ```
 
-## where::do in a function
+## run in a function
 
-We can call `where::do` from within a function to further hide details. For 
+We can call `run` from within a function to further hide details. For 
 example, we could produce subpopulation summaries for the different species of 
 iris:  
 
 ```{r function_on_parts}
-population_summaries <- function(df) where::do(with(df, df[subgroup, ]),
+population_summaries <- function(df) run(with(df, df[subgroup, ]),
                                             subgroup = subgroups)
 
 as.data.table(iris)[, .(population_summaries(.SD)), keyby = "Species"]
@@ -236,7 +236,7 @@ immediately over all groups.
 ```{r apply_over_pops}
 on_subpopulations <- function(expr,
                               populations = subgroups)
-  eval(substitute(where::do(expr, subgroup = populations),
+  eval(substitute(run(expr, subgroup = populations),
                   list(expr = substitute(expr))))
 
 on_subpopulations(as.data.table(iris)[subgroup])
@@ -310,7 +310,7 @@ environment in the `on_subpopulations` function:
 on_subpopulations <- function(expr,
                               populations = subgroups) {
   e <- parent.frame()
-  eval(substitute(where::do(expr, subgroup = populations, e = e),
+  eval(substitute(run(expr, subgroup = populations, e = e),
                   list(expr = substitute(expr))))
 }
 ```
@@ -318,9 +318,9 @@ on_subpopulations <- function(expr,
 
 ## Infix notation
 
-As some syntactic sugar, there are also two infix versions of `where::do`:
+As some syntactic sugar, there are also two infix versions of `run`:
 
-- `%where%` is a full infix version of `where::do` taking the expression as the left
+- `%where%` is a full infix version of `run` taking the expression as the left
 argument and a named list of values to be substituted as the right argument.
 - ``%for%` has slightly simplified syntax but only allows one substitution, for 
 the symbol `x`.
