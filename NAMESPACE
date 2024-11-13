@@ -2,5 +2,6 @@
 
 export("%for%")
 export("%where%")
+export("%with%")
 export(.)
 export(run)

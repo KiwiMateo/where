@@ -348,3 +348,13 @@ Complex expressions (for example, with pipes or `+`) need to be wrapped with
               .by = Species)) %for% subgroups
 ```
 
+The `%with%` function provides a similar syntax to `%where%` for standard 
+evaluation:
+
+```{r with}
+(a + b) %with% {
+  a = 1
+  b = 2
+}
+```
+

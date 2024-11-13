@@ -125,4 +125,14 @@ test_that("test run function", {
                                        summary),
                                 .by = Species)) %where% list(subgroup = subgroups,
                                                              summary  = mean))
+
+  expect_equal((a + b) %with% {a = 1
+                               b = 2},
+               3)
+
+  e <- new.env()
+  local((a + b) %with% {a = 1
+                        b = 2},
+        e)
+  expect_length(ls(envir = e), 0)
 })

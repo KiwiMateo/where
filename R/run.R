@@ -122,3 +122,25 @@ run <- function(expr,
   e <- parent.frame()
   do.call(run, c(list(substitute(expr), e = e), pars))
 }
+
+#' Posterior variable declaration
+#'
+#' @param expr expression to evaluate
+#' @param variables expression with variable assignments
+#'
+#' @return The value of the evaluated expression.
+#' @export
+#'
+#' @examples
+#'   (a + b) %with% {
+#'     a = 1
+#'     b = 2
+#'   }
+`%with%` <- function(expr,
+                     variables) {
+  # The more elegant body {variables; expr} pollutes the call environment
+  # even when wrapped in local
+  e <- new.env(parent = parent.frame(2))
+  eval(substitute(variables), envir = e)
+  eval(substitute(expr), envir = e)
+}
