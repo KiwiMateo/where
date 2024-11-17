@@ -20,21 +20,37 @@ library(ggplot2)
 ```
 
 
-The `where` package has one main function `run` which provides a clean
-syntax for vectorising the use of NSE, for example in `ggplot2`, `dplyr`, or
-`data.table`. There are also two (infix) wrappers `%where%` and `%for%` that
-provide arguably cleaner syntax.
+The `where` package has one main function `run` which provides a clean syntax
+for vectorising the use of NSE non-standard evaluation), for example in
+`ggplot2`, `dplyr`, or `data.table`. There are also two (infix) wrappers
+`%where%` and `%for%` that provide arguably cleaner syntax. A typical example
+might look like
 
-In a typical example, we might have a population dataset and various
-subpopulations of interest. If the subpopulations are a partition of the data
-(for example, into 5 year age bands), then we can use `group_by` in `dplyr` or
-faceting in `ggplot`. In general, however, populations will not be so easy to
-apply over, for example if we have some defined by age, others by gender, and
-then others as a combination of the two. If a variable allows multiple options 
-to be selected (for example, ethnicity in the New Zealand Census), then even
-subpopulations defined by a single variable (in this case ethnic groups) cannot
-be vectorised with the partitioning functionality (like group by and faceting)
-in standard packages.
+```{r}
+subgroups <- .(all        = TRUE,
+               long_sepal = Sepal.Length > 6,
+               long_petal = Petal.Length > 5.5)
+
+(iris %>%
+  filter(x) %>%
+  summarise(across(Sepal.Length:Petal.Width,
+                   mean),
+            .by = Species)) %for% subgroups
+```
+
+
+Here we have a population dataset and various subpopulations of interest and we
+want to apply the same code over all subpopulations. If the subpopulations were
+a partition of the data (for example, a census population could be divided into
+5 year age bands), then we can use `group_by()` in `dplyr` or faceting in
+`ggplot`, for example, to apply the same code over all subpopulations. In
+general, however, the populations will not be so easy to apply over, for example
+if we have some defined by age, others by gender, and then others as a
+combination of the two. A variable that allows multiple options to be selected
+(for example, ethnicity in the New Zealand Census), can alone define
+subpopulations (in this case ethnic groups) that cannot be vectorised over with
+the partitioning functionality (like group by and faceting) in standard
+packages. The `where` package makes these examples straightforward.
 
 ## Simple example
 
@@ -45,7 +61,7 @@ As a running example we will use the `iris` dataset and the following
 - irises with sepal length more than 6, and
 - irises with petal length more than 5.5.
 
-These subgroups can be captured with the `.` function to capture the filter
+These subgroups can be captured with the `.()` function to capture the filter
 conditions used to define these populations:
 
 ```{r subgroups}
@@ -83,7 +99,7 @@ lapply(subgroups, function(group) with(iris, iris[eval(group), ]))
 
 This requires some comfort with managing expressions in R and can quickly get
 messy with more complex queries, particularly if we want to apply across more 
-than one set of expressions. The `run` function hides these manipulations:
+than one set of expressions. The `run()` function hides these manipulations:
 
 ```{r}
 run(with(iris, iris[subgroup, ]),
@@ -117,7 +133,7 @@ run(
 )
 ```
 
-The same in `data.table`:
+The same using `data.table`:
 
 ```{r filter_summarise_dt}
 library(data.table)
@@ -129,7 +145,7 @@ run(df[subgroup, lapply(.SD, functions), keyby = "Species",
    functions = functions)
 ```
 
-Producing the same ggplot over the different populations:
+Producing the same `ggplot` over the different populations:
 
 ```{r ggplot}
 library(ggplot2)
@@ -218,7 +234,7 @@ run(
 
 ## run in a function
 
-We can call `run` from within a function to further hide details. For 
+We can call `run()` from within a function to further hide details. For 
 example, we could produce subpopulation summaries for the different species of 
 iris:  
 
@@ -304,7 +320,7 @@ subgroups, since the ggplot object stores the execution environment, which will
 be different.
 
 If important, this can be remedied by capturing and passing the calling 
-environment in the `on_subpopulations` function:
+environment in the `on_subpopulations()` function:
 
 ```{r}
 on_subpopulations <- function(expr,
@@ -348,8 +364,8 @@ Complex expressions (for example, with pipes or `+`) need to be wrapped with
               .by = Species)) %for% subgroups
 ```
 
-The `%with%` function provides a similar syntax to `%where%` for standard 
-evaluation:
+An additional `%with%` function provides a similar syntax to `%where%` for
+standard evaluation:
 
 ```{r with}
 (a + b) %with% {
@@ -357,4 +373,3 @@ evaluation:
   b = 2
 }
 ```
-
