@@ -3,7 +3,7 @@ Package: where
 Title: Vectorised Substitution and Evaluation
 Version: 1.0.0
 Authors@R: 
-    person("Matt", "Hendtlass", , "m.hendtlass@gmail.com", role = c("aut", "cre"))
+    person("Matt", "Hendtlass", "m.hendtlass@gmail.com", role = c("aut", "cre"))
 Description: Provides a clean syntax for vectorising the use of
     Non-Standard Evaluation (NSE), for example in 'ggplot2', 'dplyr', or
     'data.table'.
