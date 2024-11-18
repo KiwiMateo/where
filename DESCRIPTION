@@ -2,10 +2,11 @@ Package: where
 Type: Package
 Title: Vectorised substitution and evaluation
 Version: 1.0.0
-Author: Matt Hendtlass
-Maintainer: Matt Hendtlass <m.hendtlass@gmail.com>
-Description: Provides a clean syntax for vectorising the use of NSE, for example 
-    in ggplot2, dplyr, or data.table.
+Authors@R: person("Matt", "Hendtlass",
+                  role = c("aut", "cre"),
+                  email = "m.hendtlass@gmail.com")
+Description: Provides a clean syntax for vectorising the use of Non-Standard 
+    Evaluation (NSE), for example in 'ggplot2', 'dplyr', or 'data.table'.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -19,3 +20,5 @@ Suggests:
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 RoxygenNote: 7.3.2
+URL: https://github.com/KiwiMateo/where
+BugReports: https://github.com/KiwiMateo/where/issues
