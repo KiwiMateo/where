@@ -20,8 +20,8 @@ library(ggplot2)
 ```
 
 
-The `where` package has one main function `run` which provides a clean syntax
-for vectorising the use of NSE non-standard evaluation), for example in
+The `where` package has one main function `run()` that provides a clean syntax
+for vectorising the use of NSE (non-standard evaluation), for example in
 `ggplot2`, `dplyr`, or `data.table`. There are also two (infix) wrappers
 `%where%` and `%for%` that provide arguably cleaner syntax. A typical example
 might look like
