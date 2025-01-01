@@ -6,16 +6,22 @@
 #' @export
 #'
 #' @examples
+#'    let(a = 1, b = x^2, c = filter(iris, Species == "veriscolor"))
 #'    .(a = 1, b = x^2, c = filter(iris, Species == "veriscolor"))
-`.` <- function(...) as.list(match.call()[-1])
+let <- function(...) as.list(match.call()[-1])
 
-#' Run interpolated code
+#' @rdname let
+#' @export
+`.` <- let
+
+#' Run interpolated code with NSE
 #'
 #'   Vectorised substitution of expressions into a large code block and
 #'   execution.
 #'
 #'   `%where%` is a infixed version of run.
 #'   `%for%` takes only one list of expressions to be substituted for `x`.
+#'   `interpolate` substitutes, by name, values in `expr` wrapped in `{{}}`.
 #'
 #' @param expr the code to run
 #' @param ... named values to be substituted by name into `expr`
@@ -29,10 +35,12 @@
 #' @examples
 #'    library(dplyr)
 #'
-#'    subgroups = .(all        = TRUE,
-#'                  long_sepal = Sepal.Length > 6,
-#'                  long_petal = Petal.Length > 5.5)
-#'    functions = .(mean, sum, prod)
+#'    subgroups = let(all        = TRUE,
+#'                    long_sepal = Sepal.Length > 6,
+#'                    long_petal = Petal.Length > 5.5)
+#'    functions = let(mean, sum, prod)
+#'
+#'    # run
 #'
 #'    run(
 #'      iris %>%
@@ -42,16 +50,16 @@
 #'                  .by = Species),
 #'      subgroup = subgroups,
 #'      summary  = functions
-#'     )
+#'    )
 #'
 #'    library(data.table)
 #'    df <- as.data.table(iris)
 #'
 #'    run(df[subgroup, lapply(.SD, functions), keyby = "Species",
-#'          .SDcols = Sepal.Length:Petal.Width],
+#'           .SDcols = Sepal.Length:Petal.Width],
 #'
-#'       subgroup  = subgroups,
-#'       functions = functions)
+#'        subgroup  = subgroups,
+#'        functions = functions)
 #'
 #'    library(ggplot2)
 #'
@@ -60,30 +68,47 @@
 #'             aes(Sepal.Length, Sepal.Width)) +
 #'        geom_point() +
 #'        theme_minimal(),
-#'    subgroup = subgroups
+#'      subgroup = subgroups
 #'    )
 #'    Map(function(plot, name) plot + ggtitle(name), plots, names(plots))
 #'
+#'    # where
 #'    (
-#'     iris %>%
-#'       filter(subgroup) %>%
-#'       summarise(across(Sepal.Length:Petal.Width,
-#'                        summary),
-#'                 .by = Species)
+#'      iris %>%
+#'        filter(subgroup) %>%
+#'        summarise(across(Sepal.Length:Petal.Width,
+#'                         summary),
+#'                  .by = Species)
 #'    ) %where%
-#'     list(subgroup = subgroups,
-#'          summary  = functions)
+#'      list(subgroup = subgroups,
+#'           summary  = functions)
 #'
-#'   library(ggplot2)
-#'   (
-#'     ggplot(filter(iris, x),
-#'            aes(Sepal.Length, Sepal.Width)) +
-#'       geom_point() +
-#'       theme_minimal()
-#'   ) %for% subgroups
+#'    # for
+#'    (
+#'      ggplot(filter(iris, x),
+#'             aes(Sepal.Length, Sepal.Width)) +
+#'        geom_point() +
+#'        theme_minimal()
+#'    ) %for% subgroups
+#'
+#'    # interpolate
+#'    interpolate(
+#'      iris %>%
+#'        filter({{subgroups}}) %>%
+#'        summarise(across(Sepal.Length:Petal.Width,
+#'                         {{functions}}),
+#'                  .by = Species)
+#'    )
+#'
+#'    interpolate(
+#'      ggplot(filter(iris, {{subgroups}}),
+#'             aes(Sepal.Length, Sepal.Width)) +
+#'        geom_point() +
+#'        theme_minimal()
+#'    )
 run <- function(expr,
-               ...,
-               e = parent.frame()) {
+                ...,
+                e = parent.frame()) {
   expr   <- substitute(expr)
   if (...length() == 0) return(list(eval(expr)))
   values <- list(...)

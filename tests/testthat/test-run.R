@@ -14,10 +14,10 @@ test_that("test run function", {
   expect_equal(run(a + 1, a = .(5, 6)), list(6, 7))
 
   # Typical expressions
-  subgroups <- .(all        = TRUE,
-                 long_sepal = Sepal.Length > 6,
-                 long_petal = Petal.Length > 5.5)
-  functions <- .(mean, sum, prod)
+  subgroups <- let(all        = TRUE,
+                   long_sepal = Sepal.Length > 6,
+                   long_petal = Petal.Length > 5.5)
+  functions <- let(mean, sum, prod)
 
   outs1 <- list(
     one = run(# Typical expression, 1 value
@@ -65,7 +65,7 @@ test_that("test run function", {
 
   # run within a function
   f <- function(df) run(with(df, df[subgroup, ]),
-                       subgroup = subgroups)
+                        subgroup = subgroups)
   outs2 <- list(all        = f(iris),
                 versicolor = f(iris[iris[["Species"]] == "versicolor", ]))
 
@@ -77,7 +77,7 @@ test_that("test run function", {
                    run(with(iris, iris[subgroup, ]), subgroup = subgroups))
   expect_identical(outs2[["versicolor"]],
                    run(with(iris, iris[Species == "versicolor" & subgroup, ]),
-                      subgroup = subgroups))
+                       subgroup = subgroups))
 
   # run within a function, passing expr
   apply_over_groups <- function(expr,
@@ -88,7 +88,7 @@ test_that("test run function", {
   }
 
   expect_identical(run(with(iris, iris[subgroup, ]),
-                          subgroup = subgroups),
+                       subgroup = subgroups),
                    apply_over_groups(with(iris, iris[subgroup, ])))
 
   expect_identical(outs1[["one"]],
@@ -100,10 +100,10 @@ test_that("test run function", {
                                  .by = Species)))
 
   expect_identical(run(ggplot(filter(iris, subgroup),
-                                 aes(Sepal.Length, Sepal.Width)) +
-                            geom_point() +
-                            theme_minimal(),
-                          subgroup = subgroups),
+                              aes(Sepal.Length, Sepal.Width)) +
+                         geom_point() +
+                         theme_minimal(),
+                       subgroup = subgroups),
                    apply_over_groups(
                      ggplot(filter(iris, subgroup),
                             aes(Sepal.Length, Sepal.Width)) +
@@ -127,12 +127,32 @@ test_that("test run function", {
                                                              summary  = mean))
 
   expect_equal((a + b) %with% {a = 1
-                               b = 2},
-               3)
+  b = 2},
+  3)
 
   e <- new.env()
   local((a + b) %with% {a = 1
-                        b = 2},
-        e)
+  b = 2},
+  e)
   expect_length(ls(envir = e), 0)
+
+
+  # interpolate
+  # use of `enquo` in expect_identical prematurely injects the whole list of
+  # values to be substituted
+  # so we run interpolate outside the expect_identical call
+  interpolated <- interpolate(iris %>%
+                                filter({{subgroups}}) %>%
+                                summarise(across(Sepal.Length:Petal.Width,
+                                                 mean),
+                                          .by = Species))
+  expect_identical(outs1[[1]],
+                   interpolated)
+  interpolated <- interpolate(iris %>%
+                                filter({{subgroups}}) %>%
+                                summarise(across(Sepal.Length:Petal.Width,
+                                                 {{mean}}),
+                                          .by = Species))
+  expect_identical(outs1[["two_diff"]],
+                   interpolated)
 })
